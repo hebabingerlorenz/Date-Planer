@@ -1,0 +1,620 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Date Planner ✨</title>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Inter:wght@300;400;500&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --mauve:   #3D1F3A;
+      --paper:   #FFF8F0;
+      --rose:    #E8A0BF;
+      --rose-lt: #F5D0E3;
+      --gold:    #C9A84C;
+      --gold-lt: #F0E1B0;
+      --mint:    #7BBFAE;
+      --mint-lt: #C8EAE3;
+      --ink:     #2A1228;
+      --muted:   #9B7A95;
+      --shadow:  rgba(61,31,58,0.12);
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--paper);
+      color: var(--ink);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem 1rem;
+      background-image:
+        radial-gradient(circle at 10% 20%, rgba(232,160,191,0.18) 0%, transparent 50%),
+        radial-gradient(circle at 90% 80%, rgba(123,191,174,0.15) 0%, transparent 50%);
+    }
+
+    #app { width: 100%; max-width: 640px; }
+
+    .step { display: none; animation: fadeUp 0.45s ease both; }
+    .step.active { display: block; }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(18px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .header { text-align: center; margin-bottom: 2.5rem; }
+
+    .heart-icon {
+      font-size: 2.4rem;
+      display: block;
+      margin-bottom: 0.6rem;
+      color: var(--rose);
+      line-height: 1;
+    }
+
+    h1 {
+      font-family: 'Playfair Display', Georgia, serif;
+      font-size: clamp(1.6rem, 5vw, 2.2rem);
+      color: var(--mauve);
+      line-height: 1.2;
+      margin-bottom: 0.6rem;
+    }
+
+    .subtitle { font-size: 0.95rem; color: var(--muted); font-weight: 300; }
+    .subtitle strong { color: var(--mauve); font-weight: 500; }
+
+    /* ── Vibe Cards ── */
+    .vibes-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.85rem;
+      margin-bottom: 2rem;
+    }
+
+    .vibe-card {
+      background: #fff;
+      border: 2px solid rgba(61,31,58,0.10);
+      border-radius: 16px;
+      padding: 1.1rem 1rem;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      user-select: none;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .vibe-card::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: var(--card-accent, var(--rose-lt));
+      opacity: 0;
+      transition: opacity 0.2s;
+      border-radius: 14px;
+    }
+
+    .vibe-card:hover { transform: translateY(-2px); box-shadow: 0 6px 20px var(--shadow); }
+    .vibe-card:hover::before { opacity: 0.5; }
+    .vibe-card.selected { border-color: var(--mauve); box-shadow: 0 4px 16px var(--shadow); }
+    .vibe-card.selected::before { opacity: 1; }
+    .vibe-card.disabled:not(.selected) { opacity: 0.4; cursor: not-allowed; transform: none; }
+
+    .vibe-emoji { font-size: 1.8rem; display: block; margin-bottom: 0.4rem; position: relative; }
+
+    .vibe-name {
+      font-family: 'Playfair Display', serif;
+      font-size: 0.95rem;
+      color: var(--mauve);
+      line-height: 1.3;
+      position: relative;
+    }
+
+    .vibe-check {
+      position: absolute;
+      top: 0.6rem; right: 0.7rem;
+      width: 22px; height: 22px;
+      border-radius: 50%;
+      background: var(--mauve);
+      color: #fff;
+      font-size: 0.7rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      transform: scale(0.5);
+      transition: all 0.2s ease;
+    }
+
+    .vibe-card.selected .vibe-check { opacity: 1; transform: scale(1); }
+
+    /* ── Rank List ── */
+    .rank-list { display: flex; flex-direction: column; gap: 0.7rem; margin-bottom: 1.5rem; }
+
+    .rank-item {
+      background: #fff;
+      border: 2px solid rgba(61,31,58,0.10);
+      border-radius: 14px;
+      padding: 1rem 1.1rem;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      cursor: grab;
+      transition: all 0.2s ease;
+      user-select: none;
+    }
+
+    .rank-item:active { cursor: grabbing; }
+    .rank-item.dragging { opacity: 0.5; box-shadow: 0 10px 30px var(--shadow); transform: scale(1.02); }
+    .rank-item.drag-over { border-color: var(--rose); background: var(--rose-lt); }
+
+    .rank-number {
+      font-family: 'Playfair Display', serif;
+      font-size: 1.4rem;
+      font-weight: 700;
+      color: var(--muted);
+      min-width: 28px;
+      text-align: center;
+    }
+
+    .rank-item:nth-child(1) .rank-number { color: var(--gold); }
+    .rank-item:nth-child(2) .rank-number { color: #8A8A8A; }
+    .rank-item:nth-child(3) .rank-number { color: #A0622B; }
+
+    .rank-emoji { font-size: 1.5rem; }
+
+    .rank-name {
+      font-family: 'Playfair Display', serif;
+      font-size: 1rem;
+      color: var(--mauve);
+      flex: 1;
+    }
+
+    .drag-handle { color: var(--muted); font-size: 1rem; opacity: 0.5; }
+
+    .rank-legend {
+      display: flex;
+      justify-content: center;
+      gap: 1rem;
+      margin-bottom: 2rem;
+      flex-wrap: wrap;
+    }
+
+    .rank-badge {
+      font-size: 0.8rem;
+      padding: 0.3rem 0.8rem;
+      border-radius: 20px;
+      font-weight: 500;
+    }
+    .rank-badge.gold   { background: var(--gold-lt); color: #8A6A00; }
+    .rank-badge.silver { background: #EFEFEF;         color: #555; }
+    .rank-badge.bronze { background: #F2E0D0;         color: #7A4A20; }
+
+    /* ── Buttons ── */
+    .action-area {
+      display: flex;
+      gap: 0.8rem;
+      justify-content: center;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .btn-primary, .btn-secondary {
+      font-family: 'Inter', sans-serif;
+      font-size: 0.95rem;
+      font-weight: 500;
+      padding: 0.75rem 1.8rem;
+      border-radius: 50px;
+      border: none;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .btn-primary {
+      background: var(--mauve);
+      color: #fff;
+      box-shadow: 0 4px 14px rgba(61,31,58,0.3);
+    }
+    .btn-primary:hover:not(:disabled) { background: #2E1529; transform: translateY(-1px); }
+    .btn-primary:disabled { opacity: 0.35; cursor: not-allowed; transform: none; box-shadow: none; }
+
+    .btn-secondary {
+      background: transparent;
+      color: var(--mauve);
+      border: 2px solid rgba(61,31,58,0.25);
+    }
+    .btn-secondary:hover { background: rgba(61,31,58,0.06); }
+
+    .hint { font-size: 0.85rem; color: var(--muted); text-align: center; margin-bottom: 0.5rem; width: 100%; }
+
+    /* ── Result ── */
+    .result-card {
+      background: #fff;
+      border-radius: 20px;
+      padding: 2rem;
+      margin-bottom: 1.5rem;
+      box-shadow: 0 8px 32px var(--shadow);
+      border-top: 4px solid var(--rose);
+    }
+
+    .result-icon { font-size: 3rem; text-align: center; margin-bottom: 1rem; }
+
+    .result-title {
+      font-family: 'Playfair Display', serif;
+      font-size: 1.4rem;
+      color: var(--mauve);
+      text-align: center;
+      margin-bottom: 1.2rem;
+      line-height: 1.3;
+    }
+
+    .result-description {
+      font-size: 1.05rem;
+      line-height: 1.7;
+      color: var(--ink);
+      text-align: center;
+      font-weight: 300;
+    }
+
+    .result-vibes {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      justify-content: center;
+      margin-top: 1.4rem;
+    }
+
+    .result-vibe-tag {
+      font-size: 0.8rem;
+      padding: 0.3rem 0.85rem;
+      border-radius: 20px;
+      background: var(--mint-lt);
+      color: #2A6D5F;
+      font-weight: 500;
+    }
+
+    .score-breakdown {
+      background: rgba(61,31,58,0.04);
+      border-radius: 14px;
+      padding: 1.2rem 1.5rem;
+      margin-bottom: 2rem;
+    }
+
+    .score-title {
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      margin-bottom: 1rem;
+      font-weight: 500;
+    }
+
+    .score-row {
+      display: flex;
+      align-items: center;
+      gap: 0.7rem;
+      margin-bottom: 0.6rem;
+      font-size: 0.88rem;
+    }
+
+    .score-bar-wrap {
+      flex: 1;
+      height: 6px;
+      background: rgba(61,31,58,0.10);
+      border-radius: 3px;
+      overflow: hidden;
+    }
+
+    .score-bar {
+      height: 100%;
+      border-radius: 3px;
+      background: linear-gradient(90deg, var(--rose), var(--mauve));
+      transition: width 0.6s ease;
+    }
+
+    .score-label { color: var(--mauve); min-width: 160px; font-weight: 400; }
+    .score-pts   { color: var(--muted); font-size: 0.8rem; min-width: 48px; text-align: right; }
+
+    @media (max-width: 420px) {
+      .vibes-grid { grid-template-columns: 1fr; }
+      .score-label { min-width: 110px; font-size: 0.78rem; }
+    }
+  </style>
+</head>
+<body>
+<div id="app">
+
+  <!-- SCHRITT 1: Vibes auswählen -->
+  <div id="step-select" class="step active">
+    <div class="header">
+      <span class="heart-icon">♡</span>
+      <h1>Was ist dein Vibe heute?</h1>
+      <p class="subtitle">Wähle bis zu <strong>3 Vibes</strong> aus, auf die du Lust hast</p>
+    </div>
+    <div class="vibes-grid" id="vibes-grid"></div>
+    <div class="action-area">
+      <p class="hint" id="select-hint">Wähle 1–3 Vibes aus</p>
+      <button class="btn-primary" id="btn-to-rank" disabled>Weiter zum Ranking →</button>
+    </div>
+  </div>
+
+  <!-- SCHRITT 2: Ranking -->
+  <div id="step-rank" class="step">
+    <div class="header">
+      <span class="heart-icon">✦</span>
+      <h1>Was ist dir am wichtigsten?</h1>
+      <p class="subtitle">Ziehe die Vibes in die richtige Reihenfolge</p>
+    </div>
+    <div class="rank-list" id="rank-list"></div>
+    <div class="rank-legend">
+      <span class="rank-badge gold">① 3 Punkte</span>
+      <span class="rank-badge silver">② 2 Punkte</span>
+      <span class="rank-badge bronze">③ 1 Punkt</span>
+    </div>
+    <div class="action-area">
+      <button class="btn-secondary" id="btn-back-select">← Zurück</button>
+      <button class="btn-primary" id="btn-find-date">Mein Date finden ✨</button>
+    </div>
+  </div>
+
+  <!-- SCHRITT 3: Ergebnis -->
+  <div id="step-result" class="step">
+    <div class="header">
+      <span class="heart-icon">★</span>
+      <h1>Dein perfektes Date</h1>
+    </div>
+    <div class="result-card" id="result-card"></div>
+    <div class="score-breakdown" id="score-breakdown"></div>
+    <div class="action-area">
+      <button class="btn-secondary" id="btn-restart">← Nochmal planen</button>
+    </div>
+  </div>
+
+</div>
+<script>
+  // ── Daten ──────────────────────────────────────────────────────────────
+
+  const VIBES = [
+    { id: 'A', emoji: '🍹', name: 'Glasses & Giggles',       color: '#F5D0E3' },
+    { id: 'B', emoji: '📸', name: 'Fotos & Fame',             color: '#D0E8F5' },
+    { id: '2', emoji: '🍦', name: "Ice & Everything's Nice",  color: '#D0F5E8' },
+    { id: 'C', emoji: '🚶', name: 'Walk & Talk',              color: '#E8F5D0' },
+    { id: '3', emoji: '✏️', name: 'Pencil & Paper',           color: '#F5EAD0' },
+    { id: '1', emoji: '🍜', name: 'Good Food & Mood',         color: '#F5D0D0' },
+  ];
+
+  const DATES = [
+    {
+      id: 'ABC',
+      icon: '🚇📸🍸',
+      title: 'U-Bahn Portraits & Cocktails',
+      description: 'Nach einem Foto- und Portraitwalk durch die wunderschönen Münchner U-Bahn Stationen Universität und Münchner Freiheit geht\'s zusammen in eine Bar – zum Beispiel ins Cocktailhaus – für eine oder zwei Runden alkoholfreie oder alkoholhaltige Drinks.',
+      vibes: ['A', 'B', 'C'],
+    },
+    {
+      id: 'A2',
+      icon: '🍸🍦',
+      title: 'Simsalabim & Veganes Eis',
+      description: 'Eine Runde Drinks im Simsalabim, und danach fahren wir für eine Runde (veganes) Eis zu mir. 🍦',
+      vibes: ['A', '2'],
+    },
+    {
+      id: '123',
+      icon: '🍜✏️🍦',
+      title: 'Chinachohl, Kunst & Eis',
+      description: 'Nach einer Runde Chinachohl stellen wir uns künstlerischen Challenges – und als süße Belohnung gibt es eine Runde (veganes) Eis bei mir.',
+      vibes: ['1', '2', '3'],
+    },
+    {
+      id: '13',
+      icon: '🍜🍦',
+      title: 'Chinachohl & Eis zum Nachtisch',
+      description: 'Nach einer gemütlichen Runde Chinachohl gibt es Eis als Nachtisch bei mir. Simpel, lecker, perfekt.',
+      vibes: ['1', '3'],
+    },
+    {
+      id: '13A',
+      icon: '🍜🍷🍦',
+      title: 'Chinachohl, Wein & Eis',
+      description: 'Nach einer Runde Chinachohl und einem – oder mehreren – Gläsern Wein oder alkoholfreiem Cocktail gibt es Eis als Nachtisch bei mir.',
+      vibes: ['1', '3', 'A'],
+    },
+    {
+      id: '12A',
+      icon: '🍜🎨🍷',
+      title: 'Chinachohl, Kunst & Cocktails',
+      description: 'Nach einem Chinachohl-Abendessen stellen wir uns künstlerischen Challenges – begleitet von einem oder mehreren Gläsern Wein oder alkoholfreiem Cocktail.',
+      vibes: ['1', '2', 'A'],
+    },
+  ];
+
+  // ── Zustand ─────────────────────────────────────────────────────────────
+
+  let selected = [];
+  let ranked   = [];
+
+  // ── Hilfsfunktionen ──────────────────────────────────────────────────────
+
+  function getVibe(id) { return VIBES.find(v => v.id === id); }
+
+  function scoreDate(date) {
+    let total = 0;
+    ranked.forEach((id, idx) => {
+      const pts = ranked.length === 3 ? [3,2,1][idx]
+                : ranked.length === 2 ? [3,1][idx]
+                : [3][idx];
+      if (date.vibes.includes(id)) total += pts;
+    });
+    return total;
+  }
+
+  function findBestDate() {
+    return DATES
+      .map(d => ({ date: d, score: scoreDate(d) }))
+      .sort((a, b) => b.score - a.score)[0];
+  }
+
+  // ── Schritt 1: Vibes auswählen ───────────────────────────────────────────
+
+  function renderVibeGrid() {
+    const grid = document.getElementById('vibes-grid');
+    grid.innerHTML = '';
+    VIBES.forEach(v => {
+      const card = document.createElement('div');
+      card.className = 'vibe-card' + (selected.includes(v.id) ? ' selected' : '');
+      if (selected.length >= 3 && !selected.includes(v.id)) card.classList.add('disabled');
+      card.style.setProperty('--card-accent', v.color);
+      card.innerHTML = `
+        <span class="vibe-emoji">${v.emoji}</span>
+        <div class="vibe-name">${v.name}</div>
+        <div class="vibe-check">✓</div>`;
+      card.addEventListener('click', () => toggleVibe(v.id));
+      grid.appendChild(card);
+    });
+    const hint = document.getElementById('select-hint');
+    const left = 3 - selected.length;
+    hint.textContent = selected.length === 0 ? 'Wähle 1–3 Vibes aus'
+      : left === 0 ? '3 Vibes gewählt ✓'
+      : `${selected.length} gewählt – noch ${left} möglich`;
+    document.getElementById('btn-to-rank').disabled = selected.length === 0;
+  }
+
+  function toggleVibe(id) {
+    if (selected.includes(id)) selected = selected.filter(s => s !== id);
+    else if (selected.length < 3) selected.push(id);
+    renderVibeGrid();
+  }
+
+  // ── Schritt 2: Ranking (Drag & Drop) ────────────────────────────────────
+
+  function renderRankList() {
+    ranked = [...selected];
+    buildRankDOM();
+  }
+
+  function buildRankDOM() {
+    const list = document.getElementById('rank-list');
+    list.innerHTML = '';
+    const ordinals = ['①','②','③'];
+    ranked.forEach((id, idx) => {
+      const v = getVibe(id);
+      const item = document.createElement('div');
+      item.className = 'rank-item';
+      item.draggable = true;
+      item.dataset.id = id;
+      item.innerHTML = `
+        <span class="rank-number">${ordinals[idx] || '①'}</span>
+        <span class="rank-emoji">${v.emoji}</span>
+        <span class="rank-name">${v.name}</span>
+        <span class="drag-handle">⠿</span>`;
+      item.addEventListener('dragstart', onDragStart);
+      item.addEventListener('dragover',  onDragOver);
+      item.addEventListener('dragleave', onDragLeave);
+      item.addEventListener('drop',      onDrop);
+      item.addEventListener('dragend',   onDragEnd);
+      addTouchSupport(item);
+      list.appendChild(item);
+    });
+  }
+
+  let dragSrc = null;
+
+  function onDragStart(e) { dragSrc = this; this.classList.add('dragging'); e.dataTransfer.effectAllowed = 'move'; }
+  function onDragOver(e)  { e.preventDefault(); if (this !== dragSrc) this.classList.add('drag-over'); }
+  function onDragLeave()  { this.classList.remove('drag-over'); }
+  function onDragEnd()    { this.classList.remove('dragging'); document.querySelectorAll('.rank-item').forEach(el => el.classList.remove('drag-over')); }
+
+  function onDrop(e) {
+    e.preventDefault();
+    this.classList.remove('drag-over');
+    if (this === dragSrc) return;
+    const ids = [...document.getElementById('rank-list').querySelectorAll('.rank-item')].map(el => el.dataset.id);
+    const from = ids.indexOf(dragSrc.dataset.id);
+    const to   = ids.indexOf(this.dataset.id);
+    ids.splice(from, 1);
+    ids.splice(to, 0, dragSrc.dataset.id);
+    ranked = ids;
+    buildRankDOM();
+  }
+
+  function addTouchSupport(item) {
+    let startY;
+    item.addEventListener('touchstart', e => { startY = e.touches[0].clientY; item.classList.add('dragging'); }, { passive: true });
+    item.addEventListener('touchmove', e => {
+      e.preventDefault();
+      const y = e.touches[0].clientY;
+      const items = [...document.getElementById('rank-list').querySelectorAll('.rank-item')];
+      items.forEach(el => el.classList.remove('drag-over'));
+      const target = items.find(el => { const r = el.getBoundingClientRect(); return y >= r.top && y <= r.bottom && el !== item; });
+      if (target) target.classList.add('drag-over');
+    }, { passive: false });
+    item.addEventListener('touchend', () => {
+      item.classList.remove('dragging');
+      const items = [...document.getElementById('rank-list').querySelectorAll('.rank-item')];
+      const target = items.find(el => el.classList.contains('drag-over'));
+      items.forEach(el => el.classList.remove('drag-over'));
+      if (!target || target === item) return;
+      const from = ranked.indexOf(item.dataset.id);
+      const to   = ranked.indexOf(target.dataset.id);
+      ranked.splice(from, 1);
+      ranked.splice(to, 0, item.dataset.id);
+      buildRankDOM();
+    });
+  }
+
+  // ── Schritt 3: Ergebnis ──────────────────────────────────────────────────
+
+  function renderResult() {
+    const best   = findBestDate();
+    const date   = best.date;
+    const maxPts = ranked.length === 3 ? 6 : ranked.length === 2 ? 4 : 3;
+
+    document.getElementById('result-card').innerHTML = `
+      <div class="result-icon">${date.icon}</div>
+      <div class="result-title">${date.title}</div>
+      <div class="result-description">${date.description}</div>
+      <div class="result-vibes">
+        ${date.vibes.map(id => { const v = getVibe(id); return v ? `<span class="result-vibe-tag">${v.emoji} ${v.name}</span>` : ''; }).join('')}
+      </div>`;
+
+    const all = DATES.map(d => ({ date: d, score: scoreDate(d) })).sort((a,b) => b.score - a.score);
+    document.getElementById('score-breakdown').innerHTML = `
+      <div class="score-title">Punkteübersicht aller Dates</div>
+      ${all.map(r => {
+        const pct = maxPts > 0 ? Math.round((r.score / maxPts) * 100) : 0;
+        const isWinner = r.date.id === date.id;
+        return `<div class="score-row">
+          <span class="score-label">${r.date.icon} ${r.date.title.split(' ').slice(0,3).join(' ')}…</span>
+          <div class="score-bar-wrap"><div class="score-bar" style="width:${pct}%;${isWinner?'':'opacity:0.4'}"></div></div>
+          <span class="score-pts">${r.score} Pkt</span>
+        </div>`;
+      }).join('')}`;
+  }
+
+  // ── Navigation ───────────────────────────────────────────────────────────
+
+  function showStep(id) {
+    document.querySelectorAll('.step').forEach(s => s.classList.remove('active'));
+    const el = document.getElementById(id);
+    void el.offsetWidth;
+    el.classList.add('active');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  document.getElementById('btn-to-rank').addEventListener('click', () => { renderRankList(); showStep('step-rank'); });
+  document.getElementById('btn-back-select').addEventListener('click', () => showStep('step-select'));
+  document.getElementById('btn-find-date').addEventListener('click', () => { renderResult(); showStep('step-result'); });
+  document.getElementById('btn-restart').addEventListener('click', () => {
+    selected = []; ranked = [];
+    renderVibeGrid();
+    document.getElementById('btn-to-rank').disabled = true;
+    showStep('step-select');
+  });
+
+  renderVibeGrid();
+</script>
+</body>
+</html>
