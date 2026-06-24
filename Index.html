@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Date Planner ✨</title>
+
+<style>
+body {
+  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+  background:#fff8f0;
+  margin:0;
+  padding:16px;
+  text-align:center;
+}
+
+h1 { font-size:1.8rem; margin-bottom:10px; }
+h2 { font-size:1.2rem; color:#666; }
+
+.container {
+  max-width:500px;
+  margin:auto;
+}
+
+.card {
+  background:white;
+  padding:14px;
+  border-radius:14px;
+  margin:8px 0;
+  box-shadow:0 4px 12px rgba(0,0,0,0.05);
+}
+
+.vibe {
+  font-size:1.1rem;
+}
+
+.selected {
+  background:#f5d0e3;
+}
+
+button {
+  margin-top:16px;
+  padding:12px;
+  width:100%;
+  border:none;
+  border-radius:30px;
+  background:#3D1F3A;
+  color:white;
+  font-size:1rem;
+}
+
+.rank-item {
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:10px;
+  font-size:1.1rem;
+  touch-action:none;
+}
+
+.dragging {
+  opacity:0.5;
+}
+
+.result-text {
+  text-align:left;
+  line-height:1.6;
+  font-size:1rem;
+}
+</style>
+
+</head>
+
+<body>
+
+<div class="container">
+
+<h1>💫 Dein Date Planner</h1>
+
+<!-- STEP 1 -->
+
+<div id="step1">
+  <h2>Wähle bis zu 3 Vibes</h2>
+  <div id="vibes"></div>
+  <button onclick="goToRank()">Weiter →</button>
+</div>
+
+<!-- STEP 2 -->
+
+<div id="step2" style="display:none;">
+  <h2>Ziehe in Reihenfolge 💡</h2>
+  <div id="ranking"></div>
+  <button onclick="calculate()">Date finden 💖</button>
+</div>
+
+<!-- STEP 3 -->
+
+<div id="step3" style="display:none;">
+  <h2>💖 Dein perfektes Date</h2>
+  <div id="result" class="card result-text"></div>
+  <button onclick="restart()">Nochmal 🔄</button>
+</div>
+
+</div>
+
+<script>
+
+const VIBES = [
+  {id:'A', emoji:'🚐', name:'Vanlife'},
+  {id:'B', emoji:'✨', name:'Sterne schauen'},
+  {id:'C', emoji:'💐', name:'Romantik'},
+  {id:'D', emoji:'🛋️', name:'Chillen'},
+  {id:'E', emoji:'🍜', name:'Essen'}
+];
+
+const DATES = [
+{
+title:'🚐✨💐 Vanlife Sternen-Date',
+vibes:['A','B','C'],
+desc:'Ich hole dich wahlweise vom HBF oder zu Hause ab und wir fahren mit Gustl (unserem Bus) an einen nicht allzu weit entfernten Camping-Ort. Dort genießen wir die Sterne, uns und ein paar Snacks.'
+},
+{
+title:'💐🍝 Romantic Dinner',
+vibes:['C','E','D'],
+desc:'In einem Zuhause deiner Wahl machen wir es uns gemütlich mit Essen deiner Wahl oder meinem Vorschlag: ein veganer, reichhaltiger Salat mit vielen frischen Zutaten, bayrische Crème, Espresso und Pancakes zum Frühstück.'
+},
+{
+title:'🚐🍜 Glamping Night',
+vibes:['A','E','B'],
+desc:'Ich hole dich ab und wir fahren mit Gustl an einen schönen Spot. Dort gibt es ein Menü deiner Wahl oder meinen Vorschlag: veganer, frischer Salat, bayrische Crème, Espresso und Pancakes am nächsten Morgen.'
+},
+{
+title:'🍦🕯️💆 Pure Entspannung',
+vibes:['C','D'],
+desc:'Lichterketten, Kerzen, veganes Eis und eine Massage für dich, um die vielen Isomatten-Nächte zu verarbeiten. Ort wählst du.'
+},
+{
+title:'🌙🍓✨ Garten Picknick',
+vibes:['E','D','B'],
+desc:'Ein Picknick im Garten unter Sternen mit deinem Wunschmenü oder meinem Vorschlag: frischer veganer Salat, bayrische Crème, Espresso und Pancakes zum Frühstück.'
+}
+];
+
+let selected = [];
+let ranked = [];
+let dragged = null;
+
+function renderVibes(){
+  const el = document.getElementById('vibes');
+  el.innerHTML='';
+
+  VIBES.forEach(v=>{
+    const div = document.createElement('div');
+    div.className='card vibe';
+    div.innerHTML=`${v.emoji} ${v.name}`;
+
+    if(selected.includes(v.id)) div.classList.add('selected');
+
+    div.onclick=()=>{
+      if(selected.includes(v.id)){
+        selected = selected.filter(x=>x!==v.id);
+      } else if(selected.length < 3){
+        selected.push(v.id);
+      }
+      renderVibes();
+    };
+
+    el.appendChild(div);
+  });
+}
+
+function goToRank(){
+  ranked = [...selected];
+  document.getElementById('step1').style.display='none';
+  document.getElementById('step2').style.display='block';
+  renderRanking();
+}
+
+function renderRanking(){
+  const el = document.getElementById('ranking');
+  el.innerHTML='';
+
+  ranked.forEach(id=>{
+    const v = VIBES.find(x=>x.id===id);
+
+    const div = document.createElement('div');
+    div.className='card rank-item';
+    div.innerHTML=`${v.emoji} ${v.name}`;
+    div.dataset.id=id;
+
+    div.draggable=true;
+
+    div.addEventListener('dragstart', ()=> dragged = div);
+    div.addEventListener('dragover', e=>e.preventDefault());
+    div.addEventListener('drop', ()=>{
+      if(div === dragged) return;
+
+      const ids = [...document.querySelectorAll('.rank-item')].map(el=>el.dataset.id);
+      const from = ids.indexOf(dragged.dataset.id);
+      const to = ids.indexOf(div.dataset.id);
+
+      ids.splice(from,1);
+      ids.splice(to,0,dragged.dataset.id);
+
+      ranked = ids;
+      renderRanking();
+    });
+
+    // TOUCH SUPPORT
+    div.addEventListener('touchstart', ()=> dragged = div);
+    div.addEventListener('touchmove', e=>{
+      e.preventDefault();
+      const y = e.touches[0].clientY;
+      const items = [...document.querySelectorAll('.rank-item')];
+      const target = items.find(el=>{
+        const r = el.getBoundingClientRect();
+        return y > r.top && y < r.bottom;
+      });
+
+      if(target && target !== div){
+        const from = ranked.indexOf(div.dataset.id);
+        const to = ranked.indexOf(target.dataset.id);
+
+        ranked.splice(from,1);
+        ranked.splice(to,0,div.dataset.id);
+
+        renderRanking();
+      }
+    }, {passive:false});
+
+    el.appendChild(div);
+  });
+}
+
+function calculate(){
+  let best=null;
+  let bestScore=-1;
+
+  ranked.forEach((vibe,i)=>{
+    const pts=[3,2,1][i] || 1;
+
+    DATES.forEach(d=>{
+      if(!d.score) d.score=0;
+      if(d.vibes.includes(vibe)) d.score+=pts;
+    });
+  });
+
+  DATES.forEach(d=>{
+    if(d.score>bestScore){
+      bestScore=d.score;
+      best=d;
+    }
+  });
+
+  document.getElementById('step2').style.display='none';
+  document.getElementById('step3').style.display='block';
+
+  document.getElementById('result').innerHTML=
+    `<h3>${best.title}</h3><p>${best.desc}</p>`;
+}
+
+function restart(){
+  selected=[];
+  ranked=[];
+  DATES.forEach(d=>d.score=0);
+
+  document.getElementById('step3').style.display='none';
+  document.getElementById('step1').style.display='block';
+
+  renderVibes();
+}
+
+renderVibes();
+
+</script>
+
+</body>
+</html>
